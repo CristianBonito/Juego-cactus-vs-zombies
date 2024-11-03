@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Invader con Niveles</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: rgb(200, 226, 197);
+            overflow: hidden;
+        }
+
+        #gameArea {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #87CEEB, #ADD8E6);
+            display: none;
+        }
+
+        #ground {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 30px;
+            background-color: #8B4513;
+        }
+
+        .nave {
+            position: absolute;
+            bottom: 30px;
+            width: 90px;
+            height: 90px;
+            background-image: url('captus.png');
+            background-size: cover;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .bala {
+            position: absolute;
+            width: 5px;
+            height: 20px;
+            background-color: red;
+        }
+
+        .alien {
+            position: absolute;
+            width: 85px;
+            height: 135px;
+            background-image: url('zombie.png');
+            background-size: cover;
+        }
+
+        #gameOver,
+        #gameWin,
+        #playAgain {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            font-weight: bold;
+            display: none;
+            text-align: center;
+        }
+
+        #playAgain {
+            margin-top: 20px;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        #lives {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 18px;
+            color: black;
+        }
+
+        #stats {
+            position: absolute;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 20px;
+            display: none;
+            text-align: center;
+        }
+
+        #stars {
+            font-size: 24px;
+            color: gold;
+        }
+
+        #startButton {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="gameArea">
+        <div class="nave" id="nave"></div>
+        <div id="lives">Vidas: <span id="hearts">❤️❤️❤️</span></div>
+        <div id="gameOver">¡Juego Terminado!</div>
+        <div id="gameWin">¡Ganaste!</div>
+        <div id="playAgain">Jugar de nuevo</div>
+        <div id="stats">
+            Has eliminado <span id="alienCount"></span> zombies<br>
+            Calificación: <span id="stars"></span>
+        </div>
+        <div id="ground"></div>
+    </div>
+
+    <audio id="explosionSound" src="mure.mp3" preload="auto"></audio>
+    <audio id="backgroundMusic" src="Loonboon.mp3" preload="auto" loop></audio>
+    <audio id="audioGanar" src="audioGanar.mp3" preload="auto"></audio>
+    <audio id="audioPerder" src="audioPerder.mp3" preload="auto"></audio>
+
+    <button id="startButton" onclick="startGame()">Iniciar Juego</button>
+
+    <script>
+        const nave = document.getElementById('nave');
+        const gameArea = document.getElementById('gameArea');
+        const explosionSound = document.getElementById('explosionSound');
+        const backgroundMusic = document.getElementById('backgroundMusic');
+        const audioGanar = document.getElementById('audioGanar');
+        const audioPerder = document.getElementById('audioPerder');
+        const gameOverText = document.getElementById('gameOver');
+        const gameWinText = document.getElementById('gameWin');
+        const playAgainBtn = document.getElementById('playAgain');
+        const heartsDisplay = document.getElementById('hearts');
+        const statsDisplay = document.getElementById('stats');
+        const alienCountDisplay = document.getElementById('alienCount');
+        const starsDisplay = document.getElementById('stars');
+        const startButton = document.getElementById('startButton');
+
+        let navePositionX = window.innerWidth / 2;
+        let lives = 3;
+        let aliens = [];
+        let score = 0;
+        let level = 1;
+        let alienInterval;
+        const maxAliensToWin = 50;
+        const keys = {};
+
+        // Función para iniciar el juego y reproducir la música
+        function startGame() {
+            startButton.style.display = 'none'; // Oculta el botón de inicio
+            gameArea.style.display = 'block'; // Muestra el área de juego
+            backgroundMusic.loop = true;
+            backgroundMusic.play().catch(error => {
+                console.log("La reproducción automática fue bloqueada por el navegador.");
+            });
+            resetGame();
+        }
+
+        function updateHearts() {
+            heartsDisplay.innerHTML = '❤️'.repeat(lives);
+        }
+
+        function resetGame() {
+            lives = 3;
+            score = 0;
+            level = 1;
+            navePositionX = window.innerWidth / 2;
+            updateHearts();
+            statsDisplay.style.display = 'none';
+            gameOverText.style.display = 'none';
+            gameWinText.style.display = 'none';
+            playAgainBtn.style.display = 'none';
+            nave.style.display = 'block';
+            aliens.forEach(alien => alien.remove());
+            aliens = [];
+            clearInterval(alienInterval);
+            crearAlienContinuamente();
+            gameLoop();
+        }
+
+        playAgainBtn.addEventListener('click', resetGame);
+
+        function crearAlien() {
+            const alien = document.createElement('div');
+            alien.classList.add('alien');
+            alien.style.top = '0px';
+            alien.style.left = Math.random() * (window.innerWidth - 40) + 'px';
+            gameArea.appendChild(alien);
+            aliens.push(alien);
+            moverAlien(alien);
+        }
+
+        function crearAlienContinuamente() {
+            alienInterval = setInterval(() => {
+                if (lives > 0 && score < maxAliensToWin) {
+                    crearAlien();
+                }
+            }, 2500 - level * 300);
+        }
+        crearAlienContinuamente();
+
+        function moverAlien(alien) {
+            const alienFallInterval = setInterval(() => {
+                alien.style.top = alien.offsetTop + (2 + level) + 'px';
+                if (alien.offsetTop >= window.innerHeight - alien.clientHeight) {
+                    clearInterval(alienFallInterval);
+                    loseLife();
+                    alien.remove();
+                    aliens = aliens.filter(a => a !== alien);
+                    if (lives <= 0) {
+                        gameOver();
+                    }
+                }
+            }, 20);
+        }
+
+        function moverNave() {
+            if (keys['ArrowLeft'] && navePositionX > 0) {
+                navePositionX -= 10;
+            }
+            if (keys['ArrowRight'] && navePositionX < window.innerWidth - nave.clientWidth) {
+                navePositionX += 10;
+            }
+            nave.style.left = navePositionX + 'px';
+        }
+
+        function disparar() {
+            const bala = document.createElement('div');
+            bala.classList.add('bala');
+            bala.style.left = navePositionX + nave.clientWidth / 2 - 2.5 + 'px';
+            bala.style.top = nave.offsetTop - 20 + 'px';
+            gameArea.appendChild(bala);
+
+            const balaInterval = setInterval(() => {
+                bala.style.top = bala.offsetTop - 10 + 'px';
+                if (bala.offsetTop < 0) {
+                    clearInterval(balaInterval);
+                    bala.remove();
+                }
+
+                for (let i = 0; i < aliens.length; i++) {
+                    const alien = aliens[i];
+                    if (
+                        bala.offsetTop < alien.offsetTop + alien.clientHeight &&
+                        bala.offsetTop > alien.offsetTop &&
+                        bala.offsetLeft > alien.offsetLeft &&
+                        bala.offsetLeft < alien.offsetLeft + alien.clientWidth
+                    ) {
+                        explosionSound.currentTime = 0;
+                        explosionSound.play();
+                        alien.remove();
+                        aliens.splice(i, 1);
+                        clearInterval(balaInterval);
+                        bala.remove();
+
+                        score++;
+                        if (score >= maxAliensToWin) {
+                            gameWin();
+                        } else if (score % 10 === 0) {
+                            levelUp();
+                        }
+                        break;
+                    }
+                }
+            }, 20);
+        }
+
+        function levelUp() {
+            level++;
+            clearInterval(alienInterval);
+            crearAlienContinuamente();
+        }
+
+        function gameWin() {
+            gameWinText.style.display = 'block';
+            playAgainBtn.style.display = 'block';
+            nave.style.display = 'none';
+            audioGanar.play();
+            mostrarStats();
+        }
+
+        function gameOver() {
+            gameOverText.style.display = 'block';
+            playAgainBtn.style.display = 'block';
+            nave.style.display = 'none';
+            backgroundMusic.pause(); // Pausa la música de fondo cuando se pierde
+            audioPerder.play();
+            mostrarStats();
+        }
+
+        function mostrarStats() {
+            statsDisplay.style.display = 'block';
+            alienCountDisplay.textContent = score;
+
+            let stars = 1;
+            if (score >= 10) stars = 2;
+            if (score >= 20) stars = 3;
+            if (score >= 30) stars = 4;
+            if (score >= 40) stars = 5;
+            starsDisplay.innerHTML = '⭐'.repeat(stars);
+        }
+
+        function loseLife() {
+            lives--;
+            updateHearts();
+            if (lives <= 0) {
+                gameOver();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            keys[e.key] = true;
+            if (e.key === ' ') {
+                disparar();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        function gameLoop() {
+            moverNave();
+            if (lives > 0 && score < maxAliensToWin) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        gameLoop();
+    </script>
+
+</body>
+
+</html>
